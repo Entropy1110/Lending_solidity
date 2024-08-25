@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.13;
+pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 
-import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "src/UpsideAcademyLending.sol";
 
 contract CUSDC is ERC20 {
@@ -32,7 +32,7 @@ contract UpsideOracle {
 }
 
 contract Testx is Test {
-    UpsideOracle UpsideOracle;
+    UpsideOracle upsideOracle;
     UpsideAcademyLending lending;
     ERC20 usdc;
 
@@ -46,19 +46,19 @@ contract Testx is Test {
         user2 = address(0x1337 + 1);
         user3 = address(0x1337 + 2);
         user4 = address(0x1337 + 3);
-        UpsideOracle = new UpsideOracle();
+        upsideOracle = new UpsideOracle();
 
         vm.deal(address(this), 10000000 ether);
         usdc = new CUSDC();
 
         // TDOO 아래 setUp이 정상작동 할 수 있도록 여러분의 Lending Contract를 수정하세요.
-        lending = new UpsideAcademyLending(IPriceOracle(address(UpsideOracle)), address(usdc));
+        lending = new UpsideAcademyLending(IPriceOracle(address(upsideOracle)), address(usdc));
         usdc.approve(address(lending), type(uint256).max);
 
         lending.initializeLendingProtocol{value: 1}(address(usdc)); // set reserve ^__^
 
-        UpsideOracle.setPrice(address(0x0), 1339 ether);
-        UpsideOracle.setPrice(address(usdc), 1 ether);
+        upsideOracle.setPrice(address(0x0), 1339 ether);
+        upsideOracle.setPrice(address(usdc), 1 ether);
     }
 
     function testDepositEtherWithoutTxValueFails() external {
@@ -124,7 +124,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 1339 ether);
+        upsideOracle.setPrice(address(0x0), 1339 ether);
 
         vm.startPrank(user2);
         {
@@ -139,7 +139,7 @@ contract Testx is Test {
 
     function testBorrowWithInsufficientSupplyFails() external {
         supplySmallEtherDepositUser2();
-        UpsideOracle.setPrice(address(0x0), 99999999999 ether);
+        upsideOracle.setPrice(address(0x0), 99999999999 ether);
 
         vm.startPrank(user2);
         {
@@ -179,7 +179,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 3000 ether);
+        upsideOracle.setPrice(address(0x0), 3000 ether);
 
         vm.startPrank(user2);
         {
@@ -201,7 +201,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -223,7 +223,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -257,7 +257,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -352,7 +352,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -378,7 +378,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether); // 4000 usdc
+        upsideOracle.setPrice(address(0x0), 4000 ether); // 4000 usdc
 
         vm.startPrank(user2);
         {
@@ -406,7 +406,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether); // 4000 usdc
+        upsideOracle.setPrice(address(0x0), 4000 ether); // 4000 usdc
 
         vm.startPrank(user2);
         {
@@ -441,7 +441,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         bool success;
 
@@ -492,7 +492,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -566,7 +566,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -598,7 +598,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -614,7 +614,7 @@ contract Testx is Test {
         }
         vm.stopPrank();
 
-        UpsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+        upsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
         usdc.transfer(user3, 3000 ether);
 
         vm.startPrank(user3);
@@ -635,7 +635,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -651,7 +651,7 @@ contract Testx is Test {
         }
         vm.stopPrank();
 
-        UpsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+        upsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
         usdc.transfer(user3, 3000 ether);
 
         vm.startPrank(user3);
@@ -669,7 +669,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -685,7 +685,7 @@ contract Testx is Test {
         }
         vm.stopPrank();
 
-        UpsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+        upsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
         usdc.transfer(user3, 3000 ether);
 
         vm.startPrank(user3);
@@ -707,7 +707,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -725,7 +725,7 @@ contract Testx is Test {
 
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
+        upsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop price to 66%
         usdc.transfer(user3, 3000 ether);
 
         vm.startPrank(user3);
@@ -744,7 +744,7 @@ contract Testx is Test {
         supplyUSDCDepositUser1();
         supplySmallEtherDepositUser2();
 
-        UpsideOracle.setPrice(address(0x0), 4000 ether);
+        upsideOracle.setPrice(address(0x0), 4000 ether);
 
         vm.startPrank(user2);
         {
@@ -760,8 +760,8 @@ contract Testx is Test {
         }
         vm.stopPrank();
 
-        UpsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop Ether price to 66%
-        UpsideOracle.setPrice(address(usdc), 1e17); // drop USDC price to 0.1, 90% down
+        upsideOracle.setPrice(address(0x0), (4000 * 66 / 100) * 1e18); // drop Ether price to 66%
+        upsideOracle.setPrice(address(usdc), 1e17); // drop USDC price to 0.1, 90% down
         usdc.transfer(user3, 3000 ether);
 
         vm.startPrank(user3);
