@@ -15,21 +15,24 @@ contract UpsideAcademyLending {
 
     IPriceOracle public priceOracle;
     ERC20 public asset;
-    uint256 public constant LIQUIDATION_THRESHOLD_PERCENT = 66;
-    uint256 public constant LIQUIDATION_BONUS_PERCENT = 10;
+    uint256 public TIME_PER_BLOCK = 12;
+    uint256 public INTEREST_RATE = 1000000011568290181457995110;
+    uint256 constant DECIMAL = 10 ** 27;
+    uint256 totalBorrowedUSDC;
+    uint256 totalUSDC;
+    uint256 lastInterestUpdatedBlock;
+    address[] public suppliedUsers;
 
     struct User {
         uint256 borrowedAsset;
         uint256 depositedAsset;
         uint256 depositedETH;
-        uint256 lastBorrowedBlock;
-        uint256 lastDepositedBlock;
+        uint256 borrwedBlock;
+        uint256 USDCInterest;
     }
 
     mapping(address => User) public userBalances;
 
-    uint256 public totalBorrowed;
-    uint256 public totalDeposited;
 
     constructor(IPriceOracle _priceOracle, address token) {
         priceOracle = _priceOracle;
@@ -38,16 +41,16 @@ contract UpsideAcademyLending {
 
     function initializeLendingProtocol(address _usdc) external payable {
         asset = ERC20(_usdc);
-        deposit(_usdc, msg.value);  // ETH deposit
+        deposit(_usdc, msg.value);
     }
 
-    function getAccruedSupplyAmount(address _asset) external view returns (uint256) {
+    function getAccruedSupplyAmount(address _asset) public returns (uint256) {
         if (_asset == address(0)) {
             
             return userBalances[msg.sender].depositedETH; 
         } else {
-            uint256 accruedInterest = calculateYield(userBalances[msg.sender]);
-            return userBalances[msg.sender].depositedAsset + accruedInterest;
+            updateUSDC();
+            return userBalances[msg.sender].depositedAsset + userBalances[msg.sender].USDCInterest;
         }
     }
 
@@ -62,13 +65,12 @@ contract UpsideAcademyLending {
             require(asset.balanceOf(msg.sender) >= _amount, "Insufficient balance");
             require(asset.transferFrom(msg.sender, address(this), _amount), "Transfer failed");
             userBalances[msg.sender].depositedAsset += _amount;
+            totalUSDC += _amount;
+            suppliedUsers.push(msg.sender);
         }
 
-        if (userBalances[msg.sender].depositedETH == 0) {
-            userBalances[msg.sender].lastDepositedBlock = block.number;
-        }
+        
 
-        totalDeposited += _amount;
     }
 
     function withdraw(address _asset, uint256 _amount) external {
@@ -76,48 +78,45 @@ contract UpsideAcademyLending {
         uint256 ethCollateral = userBalances[msg.sender].depositedETH;
         uint256 assetPrice = priceOracle.getPrice(address(asset));
         uint256 ethPrice = priceOracle.getPrice(address(0));
+        uint256 borrowedPeriod = block.number - userBalances[msg.sender].borrwedBlock;
+        uint256 borrowed = userBalances[msg.sender].borrowedAsset * pow(INTEREST_RATE, borrowedPeriod * TIME_PER_BLOCK) / DECIMAL;
 
-        uint256 collateralValue = ethCollateral * ethPrice;
-        uint256 borrowed = userBalances[msg.sender].borrowedAsset;
-
-        uint256 requiredCollateral = (borrowed * assetPrice) / ethPrice + _amount;
-
-        require(ethCollateral >= requiredCollateral, "Insufficient collateral to cover the borrow amount");
 
         if (_asset == address(0)) {
-            require(userBalances[msg.sender].depositedETH >= _amount, "Insufficient deposited balance");
+            require(ethCollateral >= _amount, "Insufficient deposited balance");
             require(address(this).balance >= _amount, "Insufficient supply");
             
+            require((ethCollateral - _amount) * 75 / 100 >= borrowed * assetPrice / ethPrice, "Insufficient collateral");
             userBalances[msg.sender].depositedETH -= _amount;
             payable(msg.sender).transfer(_amount);
         } else {
-            require(userBalances[msg.sender].depositedAsset >= _amount, "Insufficient deposited balance");
-            require(userBalances[msg.sender].borrowedAsset * assetPrice >= _amount, "Insufficient supply");
+            uint maxDepositable = getAccruedSupplyAmount(msg.sender);
+            require(maxDepositable >= _amount, "Insufficient deposited balance");
+            totalUSDC -= _amount;
+            userBalances[msg.sender].depositedAsset -= _amount - userBalances[msg.sender].USDCInterest;
+            userBalances[msg.sender].USDCInterest = 0;
             
-            userBalances[msg.sender].depositedAsset -= _amount;
             require(asset.transfer(msg.sender, _amount), "Transfer failed");
         }
 
-        totalDeposited -= _amount;
     }
 
     function borrow(address _asset, uint256 _amount) external {
+        require(asset.balanceOf(address(this)) >= _amount, "Insufficient supply");
+
         uint256 ethCollateral = userBalances[msg.sender].depositedETH;
         uint256 assetPrice = priceOracle.getPrice(_asset);
         uint256 ethPrice = priceOracle.getPrice(address(0));
-
         uint256 collateralValue = ethCollateral * ethPrice;
-        uint256 maxBorrowable = (collateralValue * LIQUIDATION_THRESHOLD_PERCENT) / (100 * assetPrice) - userBalances[msg.sender].borrowedAsset;
-        emit LogUint(maxBorrowable);
+        uint borrowedPeriod = block.number - userBalances[msg.sender].borrwedBlock;
+        userBalances[msg.sender].borrowedAsset = userBalances[msg.sender].borrowedAsset * pow(INTEREST_RATE, borrowedPeriod * TIME_PER_BLOCK) / DECIMAL;
+        uint256 maxBorrowable = (collateralValue * 50) / (100 * assetPrice) - userBalances[msg.sender].borrowedAsset;
+
         require(maxBorrowable >= _amount, "Insufficient collateral");
-        require(asset.balanceOf(address(this)) >= _amount, "Insufficient supply");
 
-        if (userBalances[msg.sender].borrowedAsset == 0) {
-            userBalances[msg.sender].lastBorrowedBlock = block.number;
-        }
+        userBalances[msg.sender].borrwedBlock = block.number;
         userBalances[msg.sender].borrowedAsset += _amount;
-        totalBorrowed += _amount;
-
+        totalBorrowedUSDC += _amount;
 
         require(ERC20(_asset).transfer(msg.sender, _amount), "Borrow transfer failed");
     }
@@ -126,19 +125,18 @@ contract UpsideAcademyLending {
         User storage user = userBalances[msg.sender];
         uint256 ethPrice = priceOracle.getPrice(address(0));
         uint256 assetPrice = priceOracle.getPrice(token);
-        uint256 interest = calculateInterest(user) * assetPrice / ethPrice;
-
+        
         require(_amount <= asset.allowance(msg.sender, address(this)), "Allowance not set");
         require(user.borrowedAsset >= _amount, "Repay amount exceeds debt");
-        
-        require(asset.transferFrom(msg.sender, address(this), _amount), "Repay transfer failed");
 
         user.borrowedAsset -= _amount;
-        user.depositedETH -= interest;
-        totalBorrowed -= _amount;
+        totalBorrowedUSDC -= _amount;
+
+        require(asset.transferFrom(msg.sender, address(this), _amount), "Repay transfer failed");
         
-        user.lastBorrowedBlock = block.number;
     }
+
+    
     function liquidate(address user, address token, uint256 _amount) external {
         uint256 borrowed = userBalances[user].borrowedAsset;
         require(borrowed > 0, "No debt to liquidate");
@@ -150,41 +148,58 @@ contract UpsideAcademyLending {
         uint256 collateralValue = ethCollateral * ethPrice;
         uint256 debtValue = borrowed * assetPrice;
 
-        require(collateralValue * LIQUIDATION_THRESHOLD_PERCENT / 100 < debtValue, "Position is not liquidatable");
+        require(collateralValue * 75 / 100 < debtValue, "Position is not liquidatable");
 
         uint256 maxLiquidatable = borrowed < _amount ? borrowed : _amount;
-        uint256 liquidationBonus = maxLiquidatable * LIQUIDATION_BONUS_PERCENT / 100;
-
-        require(ERC20(token).transferFrom(msg.sender, address(this), maxLiquidatable), "Liquidation transfer failed");
-
-        userBalances[user].borrowedAsset -= maxLiquidatable;
-        totalBorrowed -= maxLiquidatable;
-
-        uint256 ethToTransfer = (maxLiquidatable * ethPrice / assetPrice) + liquidationBonus;
-
-        if (ethToTransfer > ethCollateral) {
-            ethToTransfer = ethCollateral;
+        
+        if (_amount <= 100){
+            require(borrowed <= 100, "can liquidate the whole position when the borrowed amount is less than 100");
+        }else{
+            require(borrowed * 25 / 100 >= _amount, "can liquidate 25% of the borrowed amount");
         }
 
-        userBalances[user].depositedETH -= ethToTransfer;
-        payable(msg.sender).transfer(ethToTransfer);
+        
+
+        userBalances[user].borrowedAsset -= maxLiquidatable;
+        totalBorrowedUSDC -= maxLiquidatable;
+        userBalances[user].depositedETH -= maxLiquidatable * assetPrice / ethPrice;
+
+        require(ERC20(token).transferFrom(msg.sender, address(this), maxLiquidatable), "Liquidation transfer failed");
+    }
+
+    function updateUSDC() internal {
+        
+        uint256 blocksElapsed = block.number - lastInterestUpdatedBlock;
+        uint256 elapsedTime = blocksElapsed * TIME_PER_BLOCK;
+        uint256 accumed;
+        uint256 interest;
+
+        accumed = totalBorrowedUSDC * pow(INTEREST_RATE, elapsedTime) / DECIMAL;
+
+        for (uint i = 0; i < suppliedUsers.length; i++) {
+            User storage user = userBalances[suppliedUsers[i]];
+            interest = (accumed - totalBorrowedUSDC) * user.depositedAsset / totalUSDC;
+            user.USDCInterest += interest;
+        }
+
+        lastInterestUpdatedBlock = block.number;
+        totalBorrowedUSDC = accumed;
+        
     }
 
 
-    function calculateInterest(User storage user) internal view returns (uint256) {
-        uint256 blocksElapsed = block.number - user.lastBorrowedBlock;
-        uint256 interestRate = 485e15;
-        uint256 interest = (user.borrowedAsset * interestRate * blocksElapsed) / 1e18;
-        return interest;
+    function pow(uint256 a, uint256 n) internal pure returns (uint256 z) {
+
+        z = n % 2 != 0 ? a : DECIMAL;
+
+        for (n /= 2; n != 0; n /= 2) {
+            a = a ** 2 / DECIMAL;
+
+            if (n % 2 != 0) {
+                z = z * a / DECIMAL;
+            }
+        }
     }
 
-    function calculateYield(User storage user) internal view returns (uint256) {
-        // uint256 blocksElapsed = block.number - user.lastBorrowedBlock;
-        // uint256 interestRate = 264;
-        // uint256 base = 1e18 + interestRate; // 1 + 이자율 (스케일링된 값)
-        // uint256 accruedYield = user.depositedETH * (base**blocksElapsed - 1e18) / 1e18; // 복리 계산
-
-
-        // return accruedYield;
-    }
 }
+
