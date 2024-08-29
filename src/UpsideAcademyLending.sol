@@ -16,8 +16,8 @@ contract UpsideAcademyLending {
     IPriceOracle public priceOracle;
     ERC20 public asset;
     uint256 public TIME_PER_BLOCK = 12;
-    uint256 public INTEREST_RATE = 1000000011568290181457995110;
-    uint256 constant DECIMAL = 10 ** 27;
+    uint256 public INTEREST_RATE = 1000000011568290181457995110; // per second, calculated from ../FindInterestPerSec.py
+    uint256 constant DECIMAL = 1e27;
     uint256 private totalBorrowedUSDC;
     uint256 private totalUSDC;
     uint256 private lastInterestUpdatedBlock;
@@ -72,6 +72,8 @@ contract UpsideAcademyLending {
 
     function withdraw(address _asset, uint256 _amount) external {
 
+        require(_asset == address(0) || _asset == address(asset), "Invalid asset");
+
         uint256 ethCollateral = userBalances[msg.sender].depositedETH;
         uint256 assetPrice = priceOracle.getPrice(address(asset));
         uint256 ethPrice = priceOracle.getPrice(address(0));
@@ -99,6 +101,7 @@ contract UpsideAcademyLending {
     }
 
     function borrow(address _asset, uint256 _amount) external {
+        require(_asset == address(0) || _asset == address(asset), "Invalid asset");
         require(asset.balanceOf(address(this)) >= _amount, "Insufficient supply");
 
         uint256 ethCollateral = userBalances[msg.sender].depositedETH;
@@ -119,9 +122,10 @@ contract UpsideAcademyLending {
     }
 
     function repay(address token, uint256 _amount) external {
+
+        require(token == address(0) || token == address(asset), "Invalid asset");
+
         User storage user = userBalances[msg.sender];
-        uint256 ethPrice = priceOracle.getPrice(address(0));
-        uint256 assetPrice = priceOracle.getPrice(token);
         
         require(_amount <= asset.allowance(msg.sender, address(this)), "Allowance not set");
         require(user.borrowedAsset >= _amount, "Repay amount exceeds debt");
@@ -143,7 +147,7 @@ contract UpsideAcademyLending {
         uint256 collateralValue = ethCollateral * ethPrice;
         uint256 debtValue = borrowed * assetPrice;
 
-        require(collateralValue * 75 / 100 < debtValue, "Position is not liquidatable");
+        require(collateralValue * 75 / 100 < debtValue, "Not liquidatable");
 
         uint256 maxLiquidatable = borrowed < _amount ? borrowed : _amount;
         
