@@ -18,9 +18,9 @@ contract UpsideAcademyLending {
     uint256 public TIME_PER_BLOCK = 12;
     uint256 public INTEREST_RATE = 1000000011568290181457995110;
     uint256 constant DECIMAL = 10 ** 27;
-    uint256 totalBorrowedUSDC;
-    uint256 totalUSDC;
-    uint256 lastInterestUpdatedBlock;
+    uint256 private totalBorrowedUSDC;
+    uint256 private totalUSDC;
+    uint256 private lastInterestUpdatedBlock;
     address[] public suppliedUsers;
 
     struct User {
@@ -68,9 +68,6 @@ contract UpsideAcademyLending {
             totalUSDC += _amount;
             suppliedUsers.push(msg.sender);
         }
-
-        
-
     }
 
     function withdraw(address _asset, uint256 _amount) external {
@@ -85,8 +82,8 @@ contract UpsideAcademyLending {
         if (_asset == address(0)) {
             require(ethCollateral >= _amount, "Insufficient deposited balance");
             require(address(this).balance >= _amount, "Insufficient supply");
-            
             require((ethCollateral - _amount) * 75 / 100 >= borrowed * assetPrice / ethPrice, "Insufficient collateral");
+
             userBalances[msg.sender].depositedETH -= _amount;
             payable(msg.sender).transfer(_amount);
         } else {
@@ -133,7 +130,6 @@ contract UpsideAcademyLending {
         totalBorrowedUSDC -= _amount;
 
         require(asset.transferFrom(msg.sender, address(this), _amount), "Repay transfer failed");
-        
     }
 
     
@@ -144,7 +140,6 @@ contract UpsideAcademyLending {
         uint256 ethCollateral = userBalances[user].depositedETH;
         uint256 ethPrice = priceOracle.getPrice(address(0));
         uint256 assetPrice = priceOracle.getPrice(token);
-
         uint256 collateralValue = ethCollateral * ethPrice;
         uint256 debtValue = borrowed * assetPrice;
 
@@ -157,8 +152,6 @@ contract UpsideAcademyLending {
         }else{
             require(borrowed * 25 / 100 >= _amount, "can liquidate 25% of the borrowed amount");
         }
-
-        
 
         userBalances[user].borrowedAsset -= maxLiquidatable;
         totalBorrowedUSDC -= maxLiquidatable;
@@ -189,7 +182,6 @@ contract UpsideAcademyLending {
 
 
     function pow(uint256 a, uint256 n) internal pure returns (uint256 z) {
-
         z = n % 2 != 0 ? a : DECIMAL;
 
         for (n /= 2; n != 0; n /= 2) {
