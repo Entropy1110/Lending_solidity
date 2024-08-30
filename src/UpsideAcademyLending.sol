@@ -15,7 +15,7 @@ contract UpsideAcademyLending {
 
     IPriceOracle public priceOracle;
     ERC20 public asset;
-    uint256 public INTEREST_RATE = 1000000138822311089315088974; // ../FindInterestPerSec.py 뉴턴 랩슨 방식으로 블록 당 이자율 계산
+    uint256 public INTEREST_RATE = 1000000138822311089315088974; // ../FindInterestPerBlock.py 뉴턴 랩슨 방식으로 블록 당 이자율 계산
     uint256 constant DECIMAL = 1e27; // for precision
     uint256 private totalBorrowedUSDC; // total borrowed USDC, including interest
     uint256 private totalUSDC; // total USDC supplied
