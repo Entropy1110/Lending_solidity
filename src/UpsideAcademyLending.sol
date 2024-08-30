@@ -153,7 +153,7 @@ contract UpsideAcademyLending {
 
         require(collateralValue * 75 / 100 < debtValue, "Not liquidatable"); // LT = 75% 
         
-        if (_amount <= 100){
+        if (_amount == borrowed){
             require(borrowed <= 100, "can liquidate the whole position when the borrowed amount is less than 100");
         }else{
             require(borrowed * 25 / 100 >= _amount, "can liquidate 25% of the borrowed amount");
