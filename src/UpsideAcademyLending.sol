@@ -15,8 +15,7 @@ contract UpsideAcademyLending {
 
     IPriceOracle public priceOracle;
     ERC20 public asset;
-    uint256 public TIME_PER_BLOCK = 12;
-    uint256 public INTEREST_RATE = 1000000011567858471034890953; // ../FindInterestPerSec.py 뉴턴 랩슨 방식으로 1초당 이자율 계산
+    uint256 public INTEREST_RATE = 1000000138822311089315088974; // ../FindInterestPerSec.py 뉴턴 랩슨 방식으로 블록 당 이자율 계산
     uint256 constant DECIMAL = 1e27; // for precision
     uint256 private totalBorrowedUSDC; // total borrowed USDC, including interest
     uint256 private totalUSDC; // total USDC supplied
@@ -83,7 +82,7 @@ contract UpsideAcademyLending {
         uint256 assetPrice = priceOracle.getPrice(address(asset)); // price of the asset
         uint256 ethPrice = priceOracle.getPrice(address(0)); // price of ETH
         uint256 borrowedPeriod = block.number - userBalances[msg.sender].borrwedBlock; // period since the user borrowed the asset
-        uint256 borrowed = userBalances[msg.sender].borrowedAsset * pow(INTEREST_RATE, borrowedPeriod * TIME_PER_BLOCK) / DECIMAL; // amount of borrowed asset + interest
+        uint256 borrowed = userBalances[msg.sender].borrowedAsset * pow(INTEREST_RATE, borrowedPeriod) / DECIMAL; // amount of borrowed asset + interest
 
 
         if (_asset == address(0)) { // 이더를 출금한 후 필요한 담보 <= balance가 망가지지 않도록.
@@ -114,7 +113,7 @@ contract UpsideAcademyLending {
         uint256 ethPrice = priceOracle.getPrice(address(0));
         uint256 collateralValue = ethCollateral * ethPrice;
         uint borrowedPeriod = block.number - userBalances[msg.sender].borrwedBlock;
-        userBalances[msg.sender].borrowedAsset = userBalances[msg.sender].borrowedAsset * pow(INTEREST_RATE, borrowedPeriod * TIME_PER_BLOCK) / DECIMAL; // 이자 계산
+        userBalances[msg.sender].borrowedAsset = userBalances[msg.sender].borrowedAsset * pow(INTEREST_RATE, borrowedPeriod) / DECIMAL; // 이자 계산
         uint256 maxBorrowable = (collateralValue * 50) / (100 * assetPrice) - userBalances[msg.sender].borrowedAsset; // LTV = 50%
 
         require(maxBorrowable >= _amount, "Insufficient collateral");
@@ -177,11 +176,10 @@ contract UpsideAcademyLending {
     function updateUSDC() internal {
         
         uint256 blocksElapsed = block.number - lastInterestUpdatedBlock;
-        uint256 elapsedTime = blocksElapsed * TIME_PER_BLOCK;
         uint256 accumed;
         uint256 interest;
 
-        accumed = totalBorrowedUSDC * pow(INTEREST_RATE, elapsedTime) / DECIMAL;
+        accumed = totalBorrowedUSDC * pow(INTEREST_RATE, blocksElapsed) / DECIMAL;
 
         for (uint i = 0; i < suppliedUsers.length; i++) { // updates all users' interest at once
             User storage user = userBalances[suppliedUsers[i]];
